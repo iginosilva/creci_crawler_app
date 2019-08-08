@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2019_08_02_042155) do
+ActiveRecord::Schema.define(version: 2019_08_07_121628) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -35,5 +35,24 @@ ActiveRecord::Schema.define(version: 2019_08_02_042155) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "real_estates", force: :cascade do |t|
+    t.string "name"
+    t.string "email"
+    t.string "phone"
+    t.string "address"
+    t.string "neighborhood"
+    t.string "city"
+    t.string "state"
+    t.string "creci"
+    t.string "situation"
+    t.string "technical_manager_name"
+    t.string "technical_manager_creci"
+    t.bigint "page_control_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["page_control_id"], name: "index_real_estates_on_page_control_id"
+  end
+
   add_foreign_key "brokers", "page_controls"
+  add_foreign_key "real_estates", "page_controls"
 end
