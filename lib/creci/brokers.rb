@@ -1,13 +1,16 @@
 module Creci
   class Brokers
     def initialize
-      @asp_net_session_cookie = '5nsysuginopp5kt3ibcqjt3m'
+      @asp_net_session_cookie = 'agwnuckco5rhcveu3xpb5q4i'
     end
 
     def fetch_brokers
       initial_search_page = initial_page
-      url_total_pages = initial_search_page.search('div.pagination.row ol li.list-inline-item a')[-2].attr('href')
-      total_pages = grab_total_page_number(url_total_pages)
+      if initial_search_page.search('div.pagination.row ol li.list-inline-item a').present?
+        url_total_pages = initial_search_page.search('div.pagination.row ol li.list-inline-item a')[-2].attr('href')
+      end
+
+      total_pages = url_total_pages.present? ? grab_total_page_number(url_total_pages) : 0
 
       @last_page = Broker.last.try(:page_control).present? ? Broker.last.page_control.page.to_i : 0
       (@last_page..total_pages).each do |page|
@@ -17,7 +20,7 @@ module Creci
         puts '--------------------------'
 
         search_page = broker_list_by_page(page)
-        @broker_not_found = search_page.at('p:contains("Não foram encontrados corretores")').present? ? true : false
+        @broker_not_found = search_page.at('p:contains("Não foram encontrados corretores")').present?
         if @broker_not_found.present?
           puts "Nenhum corretor encontrado na página #{page} | Ir para próxima página - #{@broker_not_found}"
           puts '--------------------------'
@@ -26,7 +29,7 @@ module Creci
         end
         @page_control = PageControl.where({ page: page }).first_or_initialize
         @page_control.save!
-        
+
         search_page.search('.cidadao.listadecorretores .col-lg-4.broker-details').each do |broker|
           broker_creci = broker.search('div span')[0].text.squish
           broker_name = broker.search('h6').text.squish
@@ -45,12 +48,45 @@ module Creci
 
           next if page_broker.at('label:contains("UF")').blank?
 
-          next if page_broker.at('label:contains("E-Mail")').blank?
+          if page_broker.at('label:contains("E-Mail")').present?
+            broker_email = page_broker.at('label:contains("E-Mail")').parent.parent.search('span').text.squish
+          end
 
-          broker_email = page_broker.at('label:contains("E-Mail")').parent.parent.search('span').text.squish
-          broker_uf = page_broker.at('label:contains("UF")').parent.parent.search('span').text.squish
+          if page_broker.at('label:contains("E-Mail Oficial")').present?
+            broker_email2 = page_broker.at('label:contains("E-Mail Oficial")').parent.parent.search('span').text.squish
+          end
 
-          @broker = Broker.find_or_initialize_by(name: broker_name, email: broker_email, creci: broker_creci, state: broker_uf, situation: broker_situation)
+          if page_broker.at('label:contains("Contato(s)")').present?
+            phones = page_broker.at('label:contains("Contato(s)")').parent.parent.search('span').text.squish.scan(/\(\d+\) \d+-\d+/)
+            broker_phone = phones[0]
+            broker_phone2 = phones[1]
+          end
+
+          if page_broker.at('label:contains("UF")').present?
+            broker_uf = page_broker.at('label:contains("UF")').parent.parent.search('span').text.squish
+          end
+
+          if page_broker.at('label:contains("Bairro de Atuação")').present?
+            broker_acting_neighborhood = page_broker.at('label:contains("Bairro de Atuação")').parent.parent.search('span').text.squish
+          end
+
+          invalid_contacts =
+            broker_email.blank? && broker_email2.blank? && broker_phone.blank? && broker_phone2.blank?
+
+          next if invalid_contacts.present?
+
+          @broker = Broker.find_or_initialize_by({
+            name: broker_name,
+            email: broker_email,
+            email2: broker_email2,
+            phone: broker_phone,
+            phone2: broker_phone2,
+            creci: broker_creci,
+            acting_neighborhood: broker_acting_neighborhood,
+            state: broker_uf,
+            situation: broker_situation,
+          })
+
           @broker.page_control_id = @page_control.id
           @broker.save!
         end
@@ -85,10 +121,10 @@ module Creci
       Spreadsheet.client_encoding = 'UTF-8'
       book = Spreadsheet::Workbook.new
       brokers_sheet = book.create_worksheet
-      brokers_sheet.row(0).concat %w{Nome Email Estado Situação}
+      brokers_sheet.row(0).concat %w{Nome Email Email2 Telefone Telefone2 Bairro Estado Situação}
 
       broker_list.each_with_index do |broker, index|
-        brokers_sheet.row(index + 1).push broker[:name], broker[:email], broker[:state], broker[:situation]
+        brokers_sheet.row(index + 1).push broker[:name], broker[:email], broker[:email2], broker[:phone], broker[:phone2], broker[:acting_neighborhood], broker[:state], broker[:situation]
       end
       book.write '/home/igino/Área de Trabalho/corretores_creci.xls'
     end

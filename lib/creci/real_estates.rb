@@ -1,13 +1,17 @@
 module Creci
   class RealEstates
     def initialize
-      @asp_net_session_cookie = '5nsysuginopp5kt3ibcqjt3m'
+      @asp_net_session_cookie = 'agwnuckco5rhcveu3xpb5q4i'
+      @state = ''
     end
 
     def fetch_real_estates
       initial_search_page = initial_page
-      url_total_pages = initial_search_page.search('div.pagination.row ol li.list-inline-item a')[-2].attr('href')
-      total_pages = grab_total_page_number(url_total_pages)
+      if initial_search_page.search('div.pagination.row ol li.list-inline-item a').present?
+        url_total_pages = initial_search_page.search('div.pagination.row ol li.list-inline-item a')[-2].attr('href')
+      end
+
+      total_pages = url_total_pages.present? ? grab_total_page_number(url_total_pages) : 0
 
       @last_page = RealEstate.last.try(:page_control).present? ? RealEstate.last.page_control.page.to_i : 0
       (@last_page..total_pages).each do |page|
@@ -25,6 +29,7 @@ module Creci
           puts '--------------------------'
           return
         end
+
         @page_control = PageControl.where({ page: page }).first_or_initialize
         @page_control.save!
         
@@ -82,12 +87,12 @@ module Creci
     end
 
     def real_estate_list_by_page(page)
-      request = `curl "https://www.crecisp.gov.br/cidadao/listadeimobiliarias?page=#{page}&IsFinding=True" -H 'Connection: keep-alive' -H 'Cache-Control: max-age=0' -H 'Upgrade-Insecure-Requests: 1' -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3' -H 'Referer: https://www.crecisp.gov.br/cidadao/listadeimobiliarias?IsFinding=True' -H 'Accept-Encoding: gzip, deflate, br' -H 'Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7' -H "Cookie: _ga=GA1.3.259931362.1564599703; _gid=GA1.3.836408227.1564599703; ASP.NET_SessionId=#{@asp_net_session_cookie}" --compressed`
+      request = `curl "https://www.crecisp.gov.br/cidadao/listadeimobiliarias?page=#{page}&IsFinding=True&State=#{@state}" -H 'Connection: keep-alive' -H 'Cache-Control: max-age=0' -H 'Upgrade-Insecure-Requests: 1' -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3' -H 'Referer: https://www.crecisp.gov.br/cidadao/listadeimobiliarias?IsFinding=True' -H 'Accept-Encoding: gzip, deflate, br' -H 'Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7' -H "Cookie: _ga=GA1.3.259931362.1564599703; _gid=GA1.3.836408227.1564599703; ASP.NET_SessionId=#{@asp_net_session_cookie}" --compressed`
       parse_page(request)
     end
 
     def initial_page
-      request = `curl 'https://www.crecisp.gov.br/cidadao/listadeimobiliarias?IsFinding=True' -H 'Connection: keep-alive' -H 'Cache-Control: max-age=0' -H 'Upgrade-Insecure-Requests: 1' -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3' -H 'Referer: https://www.crecisp.gov.br/cidadao/buscarporimobiliaria' -H 'Accept-Encoding: gzip, deflate, br' -H 'Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7' -H "Cookie: _ga=GA1.3.259931362.1564599703; _gid=GA1.3.836408227.1564599703; ASP.NET_SessionId=#{@asp_net_session_cookie}; _gat=1" --compressed`
+      request = `curl 'https://www.crecisp.gov.br/cidadao/listadeimobiliarias?IsFinding=True&State=#{@state}' -H 'Connection: keep-alive' -H 'Cache-Control: max-age=0' -H 'Upgrade-Insecure-Requests: 1' -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3' -H 'Referer: https://www.crecisp.gov.br/cidadao/buscarporimobiliaria' -H 'Accept-Encoding: gzip, deflate, br' -H 'Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7' -H "Cookie: _ga=GA1.3.259931362.1564599703; _gid=GA1.3.836408227.1564599703; ASP.NET_SessionId=#{@asp_net_session_cookie}; _gat=1" --compressed`
       parse_page(request)
     end
 
